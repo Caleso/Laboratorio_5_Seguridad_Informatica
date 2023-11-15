@@ -1,30 +1,47 @@
-#LABORATORIO_5
-#NOMBRES: CATALINA LEDESMA Y DENISSE TORRES
-
+#LABORATORIO_3
+#NOMBRES: CATALINA LEDESMA
 import socket
 import pyDes
 
-DES = pyDes.des("DESCRYPT", pyDes.CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=pyDes.PAD_PKCS5)
+# Encripta DES
+def encrypt_des(key, data):
+    des = pyDes.des(key, pyDes.CBC, b'\0\0\0\0\0\0\0\0', pad=None, padmode=pyDes.PAD_PKCS5)
+    ciphertext = des.encrypt(data)
+    return ciphertext
 
-#Asignacion de valores
-Valor_P = 173
-Valor_Q = 50
-Valor_B = int(input("Ingrese valor B secreto: "))
-B = Valor_B
-Valor_Bx = str((Valor_Q**Valor_B)%Valor_P)
+# Desencripta DES
+def decrypt_des(key, ciphertext):
+    des = pyDes.des(key, pyDes.CBC, b'\0\0\0\0\0\0\0\0', pad=None, padmode=pyDes.PAD_PKCS5)
+    data = des.decrypt(ciphertext)
+    return data
 
-#Conexion
-Host = "LocalHost"
-Puerto = 8000
-Mi_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-Mi_Socket.connect((Host, Puerto))
+def main():
+    # Diffie-Hellman
+    valor_p = 173
+    valor_q = 50
+    valor_b = int(input("Ingrese valor B secreto: "))
+    valor_bx = str((valor_q ** valor_b) % valor_p)
 
-for i in range(1):
-    Mi_Socket.send(Valor_Bx.encode(encoding="ascii", errors="ignore"))
-    Ax = Mi_Socket.recv(1024)
-    Ax = int(Ax.decode(encoding = "ascii", errors = "ignore"))
-    KeyB = str((Ax**(Valor_B)) % Valor_P)
-    Mi_Socket.send(KeyB.encode(encoding="ascii", errors="ignore"))
-    Recibir = Mi_Socket.recv(1024)
-    Recibir = Recibir.decode(encoding = "ascii", errors = "ignore")
-    print(Recibir)
+    # Conexion
+    host = "localhost"
+    puerto = 8000
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, puerto))
+
+    # Recibe valor Ax y envia Bx
+    valor_ax = int(client_socket.recv(1024).decode())
+    client_socket.send(valor_bx.encode(encoding="ascii", errors="ignore"))
+
+    # Calcula la clave compartida
+    clave_compartida = str((valor_ax ** valor_b) % valor_p).zfill(8).encode()
+
+    # Recibe el mensaje encriptado del servidor y lo desencripta
+    mensaje_encriptado = client_socket.recv(1024)
+    mensaje_desencriptado = decrypt_des(clave_compartida, mensaje_encriptado)
+    with open('mensajerecibido.txt', 'wb') as file:
+        file.write(mensaje_desencriptado)
+    client_socket.close()
+
+if __name__ == "__main__":
+    main()
+

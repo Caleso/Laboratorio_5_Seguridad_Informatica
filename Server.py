@@ -1,54 +1,60 @@
-#LABORATORIO_5
-#NOMBRES: CATALINA LEDESMA Y DENISSE TORRES
+#LABORATORIO_3
+#NOMBRES: CATALINA LEDESMA
 
 import socket
 import pyDes
 
-MensajeEntrada = open('mensajeentrada.txt','r') #Se abre el txt
-Textito = MensajeEntrada.readlines()[0] #Extrae el texto ingresado
-MensajeEntrada.close()
+# Encripta DES
+def encrypt_des(key, data):
+    des = pyDes.des(key, pyDes.CBC, b'\0\0\0\0\0\0\0\0', pad=None, padmode=pyDes.PAD_PKCS5)
+    ciphertext = des.encrypt(data)
+    return ciphertext
 
-#Encripta 3 veces el DES
-DES = pyDes.des("DESCRYPT", pyDes.CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=pyDes.PAD_PKCS5)
-Encriptado_DES = DES.encrypt(Textito)
-Encriptado_2DES = DES.encrypt(Encriptado_DES)
-Encriptado_3DES = DES.encrypt(Encriptado_2DES)
+# Desencripta DES
+def decrypt_des(key, ciphertext):
+    des = pyDes.des(key, pyDes.CBC, b'\0\0\0\0\0\0\0\0', pad=None, padmode=pyDes.PAD_PKCS5)
+    data = des.decrypt(ciphertext)
+    return data
 
-#Asignacion de valores
-Valor_P = 173
-Valor_Q = 50
-Valor_A = int(input("Ingrese valor A secreto: "))
-Valor_Ax = str((Valor_Q**Valor_A)%Valor_P) 
+def main():
+    with open('mensajeentrada.txt', 'rb') as file:
+        mensaje_original = file.read()
 
-#Conexion
-Host = "LocalHost"
-Puerto = 8000
-Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-Server.bind((Host, Puerto))
-Server.listen(1)
-print("Servidor en espera, acceda al cliente")
-Conexion, Addr = Server.accept()
+    # Diffie-Hellman
+    valor_p = 173
+    valor_q = 50
+    valor_a = int(input("Ingrese valor A secreto: "))
+    valor_ax = str((valor_q ** valor_a) % valor_p)
 
-for i in range(1):
-    Conexion.send(Valor_Ax.encode(encoding="ascii", errors="ignore"))
-    Bx = Conexion.recv(1024)
-    Bx = int(Bx.decode(encoding = "ascii", errors = "ignore"))
-    KeyA = (Bx**(Valor_A)) % Valor_P
-    KeyB = Conexion.recv(1024)
-    KeyB = int(KeyB.decode(encoding = "ascii", errors = "ignore"))
-    Recibido = open('mensajerecibido.txt','w')
-    
-    #Si las llaves son iguales procede al desencriptado
-    if KeyA == KeyB:
-        Desencriptado_3DES = DES.decrypt(Encriptado_3DES)
-        Desencriptado_2DES = DES.decrypt(Encriptado_2DES)
-        Desencriptado_DES = DES.decrypt(Encriptado_DES)
-        Envio = str(Desencriptado_DES)
-        Conexion.send(Envio.encode(encoding = "ascii", errors = "ignore"))
-        print ("Decrypted ", Desencriptado_DES)
-        Recibido.write("Decrypted: %r" %Desencriptado_DES)
-    
-    #Si no son iguales procede al encriptado
-    else:
-        print ("Encrypted:", Encriptado_DES)
-        Recibido.write("Encrypted: %r" %Encriptado_DES)
+    # Conexion
+    host = "localhost"
+    puerto = 8000
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, puerto))
+    server_socket.listen(1)
+    print(f"Servidor en espera en {host}:{puerto}")
+    client_socket, addr = server_socket.accept()
+    print(f"Cliente conectado desde {addr}")
+
+    # Recibe valor Ax y envia Bx
+    client_socket.send(valor_ax.encode(encoding="ascii", errors="ignore"))
+    valor_bx = int(client_socket.recv(1024).decode())
+
+    # Calcula la clave compartida
+    clave_compartida = str((valor_bx ** valor_a) % valor_p).zfill(8).encode()
+
+    # Encripta el mensaje con la clave compartida y lo envía al cliente
+    mensaje_encriptado = encrypt_des(clave_compartida, mensaje_original)
+    client_socket.send(mensaje_encriptado)
+    client_socket.close()
+    server_socket.close()
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
